@@ -1,0 +1,33 @@
+Nandini Saraswat
+Computer Science Student | Web Development Intern
+Email: contact@example.com | GitHub: github.com/example | LinkedIn: linkedin.com/in/example
+
+SUMMARY
+First-year Computer Science undergraduate specializing in AI, Analytics, and Full-Stack Web Development. Experienced in building Python backends, web applications, and predictive machine learning models.
+
+SKILLS
+- Languages: Python, Java, SQL, HTML/CSS, JavaScript
+- Frameworks & Tools: Flask, React, Vite, Git, MySQL, Gemini API
+- Soft Skills: Public Speaking, Team Coordination, Event Management
+
+EDUCATION
+GLA University, Mathura
+Bachelor of Technology in Computer Science (AI & Analytics) | 2025 - Present
+
+EXPERIENCE
+Infosys Prodigy — Web Development Intern
+- Developed responsive web interfaces and assisted with backend features.
+- Collaborated on web application features using modern HTML, CSS, and JavaScript.
+
+PROJECTS
+Zenith 2 — Project Management & Collaboration Platform
+- Built a student collaboration platform using Python and Flask.
+- Implemented user authentication and dynamic project tracking features.
+
+AI Insurance Claim Verification Agent
+- Developed an automated verification system using public registries to validate claim data.
+- Streamlined data validation workflows using Python.
+
+AWARDS & LEADERSHIP
+- Overall Coordinator, College Hackathon (2025)
+- Founder / Team Lead, Aashayein Social Cause Club
