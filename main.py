@@ -4,6 +4,24 @@ import json
 from dotenv import load_dotenv
 import google.generativeai as genai
 
+DEFAULT_PORTFOLIO_DATA = {
+    "name": "",
+    "headline": "",
+    "professional_summary": "",
+    "skills": [],
+    "education": [],
+    "experience": [],
+    "projects": [],
+    "achievements": [],
+    "contact": {
+        "email": "",
+        "phone": "",
+        "linkedin": "",
+        "github": "",
+        "other_links": [],
+    },
+}
+
 def clean_resume_text(raw_text: str) -> str:
     """Cleans raw text by removing extra spaces and weird characters."""
     cleaned_text = re.sub(r'[\r\t]', ' ', raw_text)
@@ -92,6 +110,58 @@ def call_gemini(model, prompt: str) -> str:
         print(f"Error: Could not reach Gemini API. Details: {e}")
         exit(1)
 
+def parse_and_validate_json(raw_response: str) -> dict:
+    """Cleans raw API response, converts JSON to Python dictionary safely, and handles missing values."""
+    if not raw_response:
+        print(
+            "Warning: Empty response received. Using default empty portfolio structure."
+        )
+        return DEFAULT_PORTFOLIO_DATA.copy()
+
+    
+    cleaned = raw_response.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("\n", 1)[-1]
+    if cleaned.endswith("```"):
+        cleaned = cleaned.rsplit("```", 1)[0]
+    cleaned = cleaned.strip()
+
+    
+    try:
+        data = json.loads(cleaned)
+        if not isinstance(data, dict):
+            print(
+                "Warning: Parsed output is not a JSON object. Reverting to empty structure."
+            )
+            return DEFAULT_PORTFOLIO_DATA.copy()
+    except (json.JSONDecodeError, TypeError) as e:
+        print(
+            f"Error parsing JSON from Gemini: {e}. Reverting to default empty values."
+        )
+        return DEFAULT_PORTFOLIO_DATA.copy()
+
+    
+    validated_data = DEFAULT_PORTFOLIO_DATA.copy()
+    for key, default_val in DEFAULT_PORTFOLIO_DATA.items():
+        val = data.get(key)
+        if val is not None:
+            validated_data[key] = val
+
+    
+    contact_data = validated_data.get("contact", {})
+    if not isinstance(contact_data, dict):
+        contact_data = {}
+
+    validated_data["contact"] = {
+        "email": contact_data.get("email", ""),
+        "phone": contact_data.get("phone", ""),
+        "linkedin": contact_data.get("linkedin", ""),
+        "github": contact_data.get("github", ""),
+        "other_links": contact_data.get("other_links", []),
+    }
+
+    return validated_data
+
 if __name__ == "__main__":
     raw_content = get_resume_input()
     
@@ -105,3 +175,8 @@ if __name__ == "__main__":
         raw_response = call_gemini(model, prompt)
         print("\n--- Portfolio Data from API---")
         print(raw_response)
+        
+        portfolio_data = parse_and_validate_json(raw_response)
+
+        print("\n--- Parsed Python Dictionary (Ready for HTML Template) ---")
+        print(portfolio_data)
