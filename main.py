@@ -1,5 +1,8 @@
 import os
 import re
+import json
+from dotenv import load_dotenv
+import google.generativeai as genai
 
 def clean_resume_text(raw_text: str) -> str:
     """Cleans raw text by removing extra spaces and weird characters."""
@@ -38,6 +41,57 @@ def get_resume_input() -> str:
         print("Invalid choice.")
         return ""
 
+def configure_gemini():
+    """Loads the API key and sets up the Gemini model."""
+    load_dotenv()
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        print("Error: GEMINI_API_KEY not found. Please set it in your .env file.")
+        exit(1)
+    genai.configure(api_key=api_key)
+    return genai.GenerativeModel("gemini-2.5-flash")
+
+def build_prompt(cleaned_text: str) -> str:
+    """Builds the strict instruction prompt sent to Gemini."""
+    schema = """
+    {
+        "name": "",
+        "headline": "",
+        "professional_summary": "",
+        "skills": [],
+        "education": [{"degree": "", "institution": "", "duration": ""}],
+        "experience": [{"role": "", "company": "", "duration": "", "responsibilities": []}],
+        "projects": [{"title": "", "description": "", "technologies": []}],
+        "achievements": [],
+        "contact": {"email": "", "phone": "", "linkedin": "", "github": "", "other_links": []}
+    }
+    """
+
+    return f"""You are extracting structured portfolio data from a resume.
+        Rules:
+        - Use ONLY information explicitly present in the resume text below.
+        - Do NOT invent or assume any skills, experience, projects, companies, dates, achievements, or links.
+        - If information is not present, use an empty string "" or empty list [].
+        - Keep the professional summary concise (2-3 sentences) and strictly factual.
+        - Respond with VALID JSON ONLY. No markdown code fences, no explanations, no extra text.
+
+        Return JSON matching exactly this structure:
+        {schema}
+
+        ---RESUME START---
+        {cleaned_text}
+        ---RESUME END---
+        """
+
+def call_gemini(model, prompt: str) -> str:
+    """Sends the prompt to Gemini and returns the raw text response."""
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        print(f"Error: Could not reach Gemini API. Details: {e}")
+        exit(1)
+
 if __name__ == "__main__":
     raw_content = get_resume_input()
     
@@ -45,3 +99,9 @@ if __name__ == "__main__":
         cleaned_resume = clean_resume_text(raw_content)
         print("\n--- Cleaned Resume Output ---")
         print(cleaned_resume)
+
+        model = configure_gemini()
+        prompt = build_prompt(cleaned_resume)
+        raw_response = call_gemini(model, prompt)
+        print("\n--- Portfolio Data from API---")
+        print(raw_response)
