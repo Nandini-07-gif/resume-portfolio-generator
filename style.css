@@ -1,0 +1,292 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #0a0a0f;
+    min-height: 100vh;
+    padding: 40px 20px;
+    color: #e2e8f0;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: linear-gradient(145deg, #0a0a12, #1a0a2e);
+    border-radius: 24px;
+    padding: 50px;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.8), 0 0 60px rgba(0, 240, 255, 0.05);
+    border: 1px solid rgba(0, 240, 255, 0.1);
+}
+
+header {
+    text-align: center;
+    border-bottom: 2px solid rgba(0, 240, 255, 0.15);
+    padding-bottom: 30px;
+    margin-bottom: 30px;
+}
+
+header h1 {
+    font-size: 3em;
+    background: linear-gradient(135deg, #00f0ff, #ff00e6, #00f0ff);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+    font-weight: 800;
+    animation: neonPulse 3s ease-in-out infinite;
+}
+
+@keyframes neonPulse {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+header h2 {
+    font-size: 1.3em;
+    color: #00f0ff;
+    font-weight: 400;
+    text-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+}
+
+header h2::before {
+    content: '⚡ ';
+    color: #ff00e6;
+}
+
+header h2::after {
+    content: ' ⚡';
+    color: #ff00e6;
+}
+
+.summary {
+    color: #b8b8d0;
+    background: rgba(0, 240, 255, 0.03);
+    padding: 15px 25px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 240, 255, 0.08);
+}
+
+section {
+    margin-bottom: 40px;
+    animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+section h2 {
+    color: #00f0ff;
+    font-size: 1.5em;
+    border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    text-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+}
+
+.contact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    background: rgba(0, 240, 255, 0.02);
+    padding: 20px 25px;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 240, 255, 0.06);
+}
+
+.contact-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #b8b8d0;
+    padding: 8px 0;
+    transition: all 0.3s ease;
+}
+
+.contact-item:hover {
+    transform: translateX(5px);
+}
+
+.contact-item i {
+    color: #00f0ff;
+    width: 22px;
+    font-size: 1.1em;
+    transition: all 0.3s ease;
+}
+
+.contact-item:hover i {
+    transform: scale(1.2);
+    text-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+}
+
+.contact-item a {
+    color: #00f0ff;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    font-size: 0.95em;
+}
+
+.contact-item a:hover {
+    color: #ff00e6;
+    text-shadow: 0 0 20px rgba(255, 0, 230, 0.3);
+}
+
+.skills-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.skill-tag {
+    background: rgba(0, 240, 255, 0.08);
+    color: #00f0ff;
+    padding: 8px 22px;
+    border-radius: 25px;
+    font-size: 0.95em;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0, 240, 255, 0.15);
+    cursor: default;
+}
+
+.skill-tag:hover {
+    background: rgba(0, 240, 255, 0.2);
+    box-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
+    transform: translateY(-3px) scale(1.05);
+}
+
+.experience-item, .education-item, .project-item, .achievement-item {
+    background: rgba(0, 240, 255, 0.02);
+    padding: 22px 25px;
+    border-radius: 14px;
+    margin-bottom: 16px;
+    border-left: 3px solid #00f0ff;
+    border: 1px solid rgba(0, 240, 255, 0.06);
+    border-left-width: 4px;
+    transition: all 0.3s ease;
+}
+
+.experience-item:hover, .education-item:hover, 
+.project-item:hover, .achievement-item:hover {
+    transform: translateX(8px);
+    background: rgba(0, 240, 255, 0.05);
+    box-shadow: 0 0 40px rgba(0, 240, 255, 0.05);
+}
+
+.experience-item h3, .education-item h3, 
+.project-item h3, .achievement-item h3 {
+    color: #e2e8f0;
+    font-size: 1.15em;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.experience-item h3::before {
+    content: '▶ ';
+    color: #00f0ff;
+}
+
+.date, .institution {
+    color: #64748b;
+    font-size: 0.9em;
+    margin-bottom: 8px;
+    display: inline-block;
+    background: rgba(0, 240, 255, 0.05);
+    padding: 2px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 240, 255, 0.05);
+}
+
+.description {
+    color: #cbd5e1;
+    line-height: 1.7;
+    margin-top: 8px;
+}
+
+.technologies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.tech-tag {
+    background: rgba(0, 240, 255, 0.05);
+    color: #00f0ff;
+    padding: 4px 14px;
+    border-radius: 15px;
+    font-size: 0.8em;
+    border: 1px solid rgba(0, 240, 255, 0.08);
+    transition: all 0.3s ease;
+}
+
+.tech-tag:hover {
+    background: rgba(0, 240, 255, 0.1);
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+}
+
+footer {
+    text-align: center;
+    color: #475569;
+    font-size: 0.85em;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(0, 240, 255, 0.08);
+}
+
+footer::before {
+    content: '✦ ';
+    color: #00f0ff;
+}
+
+footer::after {
+    content: ' ✦';
+    color: #ff00e6;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0a0a0f;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #00f0ff, #ff00e6);
+    border-radius: 10px;
+}
+
+@media (max-width: 768px) {
+    .container { padding: 25px 20px; }
+    header h1 { font-size: 2.2em; }
+    header h2 { font-size: 1.1em; }
+    .contact-grid { grid-template-columns: 1fr; padding: 15px; }
+    .skills-container { gap: 8px; }
+    .skill-tag { font-size: 0.85em; padding: 6px 16px; }
+    section h2 { font-size: 1.2em; }
+}
+
+@media (max-width: 480px) {
+    body { padding: 15px 10px; }
+    .container { padding: 15px 12px; border-radius: 16px; }
+    header h1 { font-size: 1.8em; }
+    header h2 { font-size: 0.95em; }
+    .summary { font-size: 0.95em; padding: 12px 16px; }
+}

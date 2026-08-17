@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{NAME} - Portfolio</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <header>
+            <h1>{NAME}</h1>
+            <h2>{HEADING}</h2>
+            <p class="summary">{SUMMARY}</p>
+        </header>
+
+        <!-- Contact & Links Section -->
+        <section id="contact">
+            <h2>📫 Contact & Links</h2>
+            <div class="contact-grid">
+                {CONTACT_CONTENT}
+            </div>
+        </section>
+
+        <!-- Skills Section -->
+        <section id="skills">
+            <h2>🛠️ Skills</h2>
+            <div class="skills-container">
+                {SKILLS_CONTENT}
+            </div>
+        </section>
+
+        <!-- Experience Section -->
+        <section id="experience">
+            <h2>💼 Experience</h2>
+            {EXPERIENCE_CONTENT}
+        </section>
+
+        <!-- Education Section -->
+        <section id="education">
+            <h2>🎓 Education</h2>
+            {EDUCATION_CONTENT}
+        </section>
+
+        <!-- Projects Section -->
+        <section id="projects">
+            <h2>🚀 Projects</h2>
+            {PROJECTS_CONTENT}
+        </section>
+
+        <!-- Achievements Section -->
+        <section id="achievements">
+            <h2>🏆 Achievements</h2>
+            {ACHIEVEMENTS_CONTENT}
+        </section>
+
+        <footer>
+            <p>Generated from resume on {DATE}</p>
+        </footer>
+    </div>
+</body>
+</html>
