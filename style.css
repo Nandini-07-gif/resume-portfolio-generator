@@ -1,292 +1,830 @@
+/* ==========================================
+   PORTFOLIO GENERATOR - MULTI-THEME STYLESHEET
+   Supports: 
+   1. Cyberpunk Neon (.theme-cyberpunk)
+   2. Modern Minimalist (.theme-minimalist)
+   3. Glassmorphism Creative (.theme-glassmorphism)
+   4. Developer Terminal (.theme-terminal)
+   ========================================== */
+
+/* Universal Reset */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #0a0a0f;
+/* ==========================================
+   THEME 1: WHITE EDITORIAL (MODERN MAGAZINE)
+   ========================================== */
+body.theme-cyberpunk {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #faf9f6;
     min-height: 100vh;
-    padding: 40px 20px;
-    color: #e2e8f0;
+    padding: 50px 20px;
+    color: #1c1917;
 }
 
-.container {
-    max-width: 1000px;
+.theme-cyberpunk .container {
+    max-width: 920px;
     margin: 0 auto;
-    background: linear-gradient(145deg, #0a0a12, #1a0a2e);
-    border-radius: 24px;
-    padding: 50px;
-    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.8), 0 0 60px rgba(0, 240, 255, 0.05);
-    border: 1px solid rgba(0, 240, 255, 0.1);
-}
-
-header {
-    text-align: center;
-    border-bottom: 2px solid rgba(0, 240, 255, 0.15);
-    padding-bottom: 30px;
-    margin-bottom: 30px;
-}
-
-header h1 {
-    font-size: 3em;
-    background: linear-gradient(135deg, #00f0ff, #ff00e6, #00f0ff);
-    background-size: 200% 200%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 8px;
-    font-weight: 800;
-    animation: neonPulse 3s ease-in-out infinite;
-}
-
-@keyframes neonPulse {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
-
-header h2 {
-    font-size: 1.3em;
-    color: #00f0ff;
-    font-weight: 400;
-    text-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
-}
-
-header h2::before {
-    content: '⚡ ';
-    color: #ff00e6;
-}
-
-header h2::after {
-    content: ' ⚡';
-    color: #ff00e6;
-}
-
-.summary {
-    color: #b8b8d0;
-    background: rgba(0, 240, 255, 0.03);
-    padding: 15px 25px;
+    background: #ffffff;
     border-radius: 12px;
-    border: 1px solid rgba(0, 240, 255, 0.08);
+    padding: 55px 65px;
+    box-shadow: 0 10px 40px rgba(28, 25, 23, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
+    border: 1px solid #e7e5e4;
 }
 
-section {
-    margin-bottom: 40px;
-    animation: fadeInUp 0.6s ease-out;
+.theme-cyberpunk header {
+    text-align: center;
+    border-top: 3px double #dc2626;
+    border-bottom: 1px solid #e7e5e4;
+    padding-top: 25px;
+    padding-bottom: 30px;
+    margin-bottom: 35px;
 }
 
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.theme-cyberpunk header h1 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 3.1em;
+    color: #1c1917;
+    margin-bottom: 8px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
 }
 
-section h2 {
-    color: #00f0ff;
-    font-size: 1.5em;
-    border-bottom: 1px solid rgba(0, 240, 255, 0.1);
-    padding-bottom: 12px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
+.theme-cyberpunk header h2 {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.15em;
+    color: #dc2626;
     font-weight: 600;
-    text-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
 }
 
-.contact-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    background: rgba(0, 240, 255, 0.02);
+.theme-cyberpunk header h2::before {
+    content: '♦ ';
+    color: #dc2626;
+}
+
+.theme-cyberpunk header h2::after {
+    content: ' ♦';
+    color: #dc2626;
+}
+
+.theme-cyberpunk .summary {
+    color: #44403c;
+    background: #fff8f8;
     padding: 20px 25px;
-    border-radius: 14px;
-    border: 1px solid rgba(0, 240, 255, 0.06);
+    border-radius: 8px;
+    border: 1px solid #fecaca;
+    border-left: 4px solid #dc2626;
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-size: 1.1em;
+    line-height: 1.7;
 }
 
-.contact-item {
+.theme-cyberpunk section {
+    margin-bottom: 40px;
+}
+
+.theme-cyberpunk section h2 {
+    font-family: 'Playfair Display', Georgia, serif;
+    color: #1c1917;
+    font-size: 1.5em;
+    border-bottom: 2px solid #dc2626;
+    padding-bottom: 10px;
+    margin-bottom: 24px;
     display: flex;
     align-items: center;
     gap: 12px;
-    color: #b8b8d0;
-    padding: 8px 0;
-    transition: all 0.3s ease;
+    font-weight: 700;
 }
 
-.contact-item:hover {
-    transform: translateX(5px);
+.theme-cyberpunk .contact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
 }
 
-.contact-item i {
-    color: #00f0ff;
-    width: 22px;
-    font-size: 1.1em;
-    transition: all 0.3s ease;
-}
-
-.contact-item:hover i {
-    transform: scale(1.2);
-    text-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
-}
-
-.contact-item a {
-    color: #00f0ff;
-    text-decoration: none;
-    transition: all 0.3s ease;
+.theme-cyberpunk .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #faf9f6;
+    padding: 12px 18px;
+    border-radius: 8px;
+    border: 1px solid #e7e5e4;
+    color: #44403c;
     font-size: 0.95em;
 }
 
-.contact-item a:hover {
-    color: #ff00e6;
-    text-shadow: 0 0 20px rgba(255, 0, 230, 0.3);
+.theme-cyberpunk .contact-item i {
+    color: #dc2626;
+    font-size: 1.1em;
 }
 
-.skills-container {
+.theme-cyberpunk .contact-item a {
+    color: #991b1b;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.theme-cyberpunk .contact-item a:hover {
+    color: #dc2626;
+    text-decoration: underline;
+}
+
+.theme-cyberpunk .skills-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px;
 }
 
-.skill-tag {
-    background: rgba(0, 240, 255, 0.08);
-    color: #00f0ff;
-    padding: 8px 22px;
-    border-radius: 25px;
-    font-size: 0.95em;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    border: 1px solid rgba(0, 240, 255, 0.15);
-    cursor: default;
-}
-
-.skill-tag:hover {
-    background: rgba(0, 240, 255, 0.2);
-    box-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
-    transform: translateY(-3px) scale(1.05);
-}
-
-.experience-item, .education-item, .project-item, .achievement-item {
-    background: rgba(0, 240, 255, 0.02);
-    padding: 22px 25px;
-    border-radius: 14px;
-    margin-bottom: 16px;
-    border-left: 3px solid #00f0ff;
-    border: 1px solid rgba(0, 240, 255, 0.06);
-    border-left-width: 4px;
-    transition: all 0.3s ease;
-}
-
-.experience-item:hover, .education-item:hover, 
-.project-item:hover, .achievement-item:hover {
-    transform: translateX(8px);
-    background: rgba(0, 240, 255, 0.05);
-    box-shadow: 0 0 40px rgba(0, 240, 255, 0.05);
-}
-
-.experience-item h3, .education-item h3, 
-.project-item h3, .achievement-item h3 {
-    color: #e2e8f0;
-    font-size: 1.15em;
-    margin-bottom: 6px;
-    font-weight: 600;
-}
-
-.experience-item h3::before {
-    content: '▶ ';
-    color: #00f0ff;
-}
-
-.date, .institution {
-    color: #64748b;
+.theme-cyberpunk .skill-tag {
+    background: #fef2f2;
+    color: #991b1b;
+    padding: 7px 20px;
+    border-radius: 20px;
     font-size: 0.9em;
-    margin-bottom: 8px;
+    font-weight: 600;
+    border: 1px solid #fca5a5;
+    transition: all 0.2s ease;
+}
+
+.theme-cyberpunk .skill-tag:hover {
+    background: #fee2e2;
+    border-color: #dc2626;
+}
+
+.theme-cyberpunk .experience-item,
+.theme-cyberpunk .education-item,
+.theme-cyberpunk .project-item,
+.theme-cyberpunk .achievement-item {
+    background: #ffffff;
+    padding: 22px 26px;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    border: 1px solid #e7e5e4;
+    border-left: 4px solid #dc2626;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.theme-cyberpunk .experience-item h3,
+.theme-cyberpunk .education-item h3,
+.theme-cyberpunk .project-item h3,
+.theme-cyberpunk .achievement-item h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+    color: #1c1917;
+    font-size: 1.25em;
+    margin-bottom: 6px;
+    font-weight: 700;
+}
+
+.theme-cyberpunk .date,
+.theme-cyberpunk .institution {
+    color: #78716c;
+    font-size: 0.88em;
+    font-weight: 500;
+    margin-bottom: 10px;
     display: inline-block;
-    background: rgba(0, 240, 255, 0.05);
-    padding: 2px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(0, 240, 255, 0.05);
+    background: #f5f5f4;
+    padding: 3px 12px;
+    border-radius: 6px;
+    border: 1px solid #e7e5e4;
 }
 
-.description {
-    color: #cbd5e1;
+.theme-cyberpunk .description {
+    color: #44403c;
     line-height: 1.7;
-    margin-top: 8px;
+    font-size: 0.98em;
 }
 
-.technologies {
+.theme-cyberpunk .technologies {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 12px;
 }
 
-.tech-tag {
-    background: rgba(0, 240, 255, 0.05);
-    color: #00f0ff;
-    padding: 4px 14px;
-    border-radius: 15px;
+.theme-cyberpunk .tech-tag {
+    background: #f5f5f4;
+    color: #78716c;
+    padding: 4px 12px;
+    border-radius: 6px;
     font-size: 0.8em;
-    border: 1px solid rgba(0, 240, 255, 0.08);
-    transition: all 0.3s ease;
+    border: 1px solid #e7e5e4;
 }
 
-.tech-tag:hover {
-    background: rgba(0, 240, 255, 0.1);
-    box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
-}
-
-footer {
+.theme-cyberpunk footer {
     text-align: center;
-    color: #475569;
+    color: #a8a29e;
     font-size: 0.85em;
+    margin-top: 50px;
+    padding-top: 25px;
+    border-top: 1px solid #e7e5e4;
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+}
+
+
+/* ==========================================
+   THEME 2: MODERN MINIMALIST (CLEAN CORPORATE)
+   ========================================== */
+body.theme-minimalist {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f8fafc;
+    color: #1e293b;
+    line-height: 1.6;
+    padding: 40px 20px;
+}
+
+.theme-minimalist .container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 50px 60px;
+    box-shadow: 0 4px 25px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e2e8f0;
+}
+
+.theme-minimalist header {
+    margin-bottom: 40px;
+    padding-bottom: 30px;
+    border-bottom: 2px solid #f1f5f9;
+    text-align: left;
+}
+
+.theme-minimalist header h1 {
+    font-size: 2.75em;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.025em;
+    margin-bottom: 6px;
+}
+
+.theme-minimalist header h2 {
+    font-size: 1.25em;
+    font-weight: 500;
+    color: #3b82f6;
+    margin-bottom: 16px;
+}
+
+.theme-minimalist .summary {
+    color: #334155;
+    font-size: 1.05em;
+    line-height: 1.7;
+    background: #f8fafc;
+    padding: 16px 20px;
+    border-radius: 10px;
+    border-left: 4px solid #3b82f6;
+}
+
+.theme-minimalist section {
+    margin-bottom: 40px;
+}
+
+.theme-minimalist section h2 {
+    font-size: 1.35em;
+    font-weight: 700;
+    color: #0f172a;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 10px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.theme-minimalist .contact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.theme-minimalist .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8fafc;
+    padding: 12px 18px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    font-size: 0.95em;
+}
+
+.theme-minimalist .contact-item i {
+    color: #3b82f6;
+    font-size: 1.1em;
+}
+
+.theme-minimalist .contact-item a {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.theme-minimalist .contact-item a:hover {
+    text-decoration: underline;
+}
+
+.theme-minimalist .skills-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.theme-minimalist .skill-tag {
+    background: #eff6ff;
+    color: #1d4ed8;
+    padding: 7px 18px;
+    border-radius: 8px;
+    font-size: 0.9em;
+    font-weight: 600;
+    border: 1px solid #dbeafe;
+}
+
+.theme-minimalist .experience-item,
+.theme-minimalist .education-item,
+.theme-minimalist .project-item,
+.theme-minimalist .achievement-item {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 16px;
+}
+
+.theme-minimalist .experience-item h3,
+.theme-minimalist .education-item h3,
+.theme-minimalist .project-item h3,
+.theme-minimalist .achievement-item h3 {
+    font-size: 1.15em;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+}
+
+.theme-minimalist .date,
+.theme-minimalist .institution {
+    display: inline-block;
+    color: #64748b;
+    font-size: 0.85em;
+    font-weight: 500;
+    margin-bottom: 8px;
+    background: #f1f5f9;
+    padding: 2px 10px;
+    border-radius: 6px;
+}
+
+.theme-minimalist .description {
+    color: #475569;
+    font-size: 0.98em;
+    line-height: 1.65;
+}
+
+.theme-minimalist .technologies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.theme-minimalist .tech-tag {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.8em;
+    font-weight: 500;
+}
+
+.theme-minimalist footer {
+    text-align: center;
+    margin-top: 50px;
+    padding-top: 25px;
+    border-top: 1px solid #f1f5f9;
+    color: #94a3b8;
+    font-size: 0.85em;
+}
+
+
+/* ==========================================
+   THEME 3: GLASSMORPHISM CREATIVE (VIBRANT)
+   ========================================== */
+body.theme-glassmorphism {
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    background-color: #0f0c29;
+    background-image: linear-gradient(135deg, #0f0c29 0%, #24243e 50%, #302b63 100%);
+    min-height: 100vh;
+    padding: 50px 20px;
+    color: #f1f5f9;
+}
+
+.theme-glassmorphism .container {
+    max-width: 950px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 24px;
+    padding: 50px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+}
+
+.theme-glassmorphism header {
+    text-align: center;
+    margin-bottom: 40px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 30px;
+}
+
+.theme-glassmorphism header h1 {
+    font-size: 3em;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ffffff 0%, #c084fc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+}
+
+.theme-glassmorphism header h2 {
+    font-size: 1.3em;
+    color: #38bdf8;
+    font-weight: 600;
+    margin-bottom: 18px;
+}
+
+.theme-glassmorphism .summary {
+    color: #e2e8f0;
+    font-size: 1.05em;
+    line-height: 1.7;
+    max-width: 750px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 18px 24px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.theme-glassmorphism section {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 30px;
+    transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.theme-glassmorphism section:hover {
+    transform: translateY(-3px);
+    border-color: rgba(168, 85, 247, 0.3);
+}
+
+.theme-glassmorphism section h2 {
+    font-size: 1.4em;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 12px;
+}
+
+.theme-glassmorphism .contact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.theme-glassmorphism .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 12px 18px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.theme-glassmorphism .contact-item i {
+    color: #38bdf8;
+    font-size: 1.1em;
+}
+
+.theme-glassmorphism .contact-item a {
+    color: #38bdf8;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.theme-glassmorphism .contact-item a:hover {
+    color: #f472b6;
+    text-decoration: underline;
+}
+
+.theme-glassmorphism .skills-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.theme-glassmorphism .skill-tag {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(56, 189, 248, 0.2));
+    color: #ffffff;
+    padding: 8px 22px;
+    border-radius: 30px;
+    font-size: 0.95em;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.theme-glassmorphism .experience-item,
+.theme-glassmorphism .education-item,
+.theme-glassmorphism .project-item,
+.theme-glassmorphism .achievement-item {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 20px 24px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: 16px;
+}
+
+.theme-glassmorphism .experience-item h3,
+.theme-glassmorphism .education-item h3,
+.theme-glassmorphism .project-item h3,
+.theme-glassmorphism .achievement-item h3 {
+    font-size: 1.2em;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 6px;
+}
+
+.theme-glassmorphism .date,
+.theme-glassmorphism .institution {
+    display: inline-block;
+    color: #94a3b8;
+    font-size: 0.88em;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 4px 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.theme-glassmorphism .description {
+    color: #cbd5e1;
+    line-height: 1.65;
+}
+
+.theme-glassmorphism .technologies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.theme-glassmorphism .tech-tag {
+    background: rgba(244, 114, 182, 0.15);
+    color: #f472b6;
+    padding: 4px 14px;
+    border-radius: 12px;
+    font-size: 0.82em;
+    font-weight: 600;
+    border: 1px solid rgba(244, 114, 182, 0.25);
+}
+
+.theme-glassmorphism footer {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.9em;
+    margin-top: 30px;
+    padding-top: 20px;
+}
+
+
+/* ==========================================
+   THEME 4: DEVELOPER TERMINAL (RETRO MONOSPACE)
+   ========================================== */
+body.theme-terminal {
+    font-family: 'Fira Code', 'Courier New', Courier, monospace;
+    background-color: #0d1117;
+    color: #c9d1d9;
+    padding: 30px 15px;
+    min-height: 100vh;
+}
+
+.theme-terminal .container {
+    max-width: 960px;
+    margin: 0 auto;
+    background-color: #161b22;
+    border-radius: 12px;
+    border: 1px solid #30363d;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+    padding: 40px;
+}
+
+.theme-terminal header {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 24px;
+    border: 1px solid #30363d;
+    border-left: 4px solid #58a6ff;
+    margin-bottom: 35px;
+}
+
+.theme-terminal header h1 {
+    font-size: 2.5em;
+    color: #58a6ff;
+    margin-bottom: 6px;
+    font-weight: 700;
+}
+
+.theme-terminal header h1::before {
+    font-size: 0.45em;
+    color: #79c0ff;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.theme-terminal header h2 {
+    color: #7ee787;
+    font-size: 1.1em;
+    font-weight: 600;
+    margin-bottom: 14px;
+}
+
+.theme-terminal header h2::before {
+    content: '> ';
+}
+
+.theme-terminal .summary {
+    color: #8b949e;
+    line-height: 1.65;
+    font-size: 0.98em;
+}
+
+.theme-terminal section {
+    margin-bottom: 40px;
+}
+
+.theme-terminal section h2 {
+    color: #ffa657;
+    font-size: 1.3em;
+    margin-bottom: 20px;
+    border-bottom: 1px dashed #30363d;
+    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.theme-terminal section h2::before {
+    color: #58a6ff;
+    font-size: 0.8em;
+}
+
+.theme-terminal .contact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+}
+
+.theme-terminal .contact-item {
+    background: #0d1117;
+    padding: 10px 16px;
+    border-radius: 6px;
+    border: 1px solid #30363d;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9em;
+}
+
+.theme-terminal .contact-item i {
+    color: #58a6ff;
+}
+
+.theme-terminal .contact-item a {
+    color: #58a6ff;
+    text-decoration: none;
+}
+
+.theme-terminal .contact-item a:hover {
+    color: #7ee787;
+    text-decoration: underline;
+}
+
+.theme-terminal .skills-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.theme-terminal .skill-tag {
+    background: #1f242c;
+    color: #7ee787;
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 0.88em;
+    border: 1px solid #2ea043;
+}
+
+.theme-terminal .experience-item,
+.theme-terminal .education-item,
+.theme-terminal .project-item,
+.theme-terminal .achievement-item {
+    background: #0d1117;
+    padding: 18px 22px;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    margin-bottom: 14px;
+}
+
+.theme-terminal .experience-item h3,
+.theme-terminal .education-item h3,
+.theme-terminal .project-item h3,
+.theme-terminal .achievement-item h3 {
+    color: #d2a8ff;
+    font-size: 1.1em;
+    margin-bottom: 6px;
+}
+
+.theme-terminal .date,
+.theme-terminal .institution {
+    color: #8b949e;
+    font-size: 0.85em;
+    margin-bottom: 8px;
+    display: inline-block;
+}
+
+.theme-terminal .description {
+    color: #c9d1d9;
+    line-height: 1.6;
+    font-size: 0.95em;
+}
+
+.theme-terminal .technologies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.theme-terminal .tech-tag {
+    background: #21262d;
+    color: #79c0ff;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    border: 1px solid #30363d;
+}
+
+.theme-terminal footer {
     margin-top: 40px;
     padding-top: 20px;
-    border-top: 1px solid rgba(0, 240, 255, 0.08);
+    border-top: 1px solid #30363d;
+    font-size: 0.9em;
+    color: #8b949e;
+    text-align: center;
 }
 
-footer::before {
-    content: '✦ ';
-    color: #00f0ff;
+.theme-terminal footer::after {
+    content: " █";
+    color: #58a6ff;
+    animation: blink 1s infinite;
 }
 
-footer::after {
-    content: ' ✦';
-    color: #ff00e6;
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
 }
 
-::-webkit-scrollbar {
-    width: 8px;
-}
 
-::-webkit-scrollbar-track {
-    background: #0a0a0f;
-}
-
-::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #00f0ff, #ff00e6);
-    border-radius: 10px;
-}
-
+/* Responsive Styles */
 @media (max-width: 768px) {
-    .container { padding: 25px 20px; }
-    header h1 { font-size: 2.2em; }
-    header h2 { font-size: 1.1em; }
-    .contact-grid { grid-template-columns: 1fr; padding: 15px; }
-    .skills-container { gap: 8px; }
-    .skill-tag { font-size: 0.85em; padding: 6px 16px; }
-    section h2 { font-size: 1.2em; }
-}
 
-@media (max-width: 480px) {
-    body { padding: 15px 10px; }
-    .container { padding: 15px 12px; border-radius: 16px; }
-    header h1 { font-size: 1.8em; }
-    header h2 { font-size: 0.95em; }
-    .summary { font-size: 0.95em; padding: 12px 16px; }
+    .theme-cyberpunk .container,
+    .theme-minimalist .container,
+    .theme-glassmorphism .container,
+    .theme-terminal .container {
+        padding: 25px 20px;
+    }
+
+    header h1 {
+        font-size: 2.2em !important;
+    }
 }
