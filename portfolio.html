@@ -11,7 +11,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@500;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="theme-glassmorphism">
+<body class="theme-minimalist">
+    <!-- Edit Mode Toggle Button -->
+    <div id="editBar" style="position:fixed;top:12px;right:16px;z-index:9999;display:flex;gap:10px;align-items:center;">
+        <span id="editStatus" style="font-size:0.8em;color:#a855f7;font-weight:600;font-family:sans-serif;display:none;">✏️ Edit Mode ON — click any text to edit</span>
+        <button id="editToggleBtn" onclick="toggleEditMode()"
+            style="background:linear-gradient(135deg,#a855f7,#38bdf8);color:#fff;border:none;padding:9px 18px;border-radius:10px;font-weight:700;cursor:pointer;font-size:0.88em;font-family:sans-serif;box-shadow:0 4px 15px rgba(168,85,247,0.4);transition:all 0.2s;">
+            ✏️ Edit Template
+        </button>
+    </div>
     <div class="container">
         <!-- Header Section -->
         <header>
@@ -69,8 +77,58 @@
 <div class="achievement-item"><h3>🏅 Founder / Team Lead, Aashayein Social Cause Club</h3></div>
         </section>
         <footer>
-            <p>Generated from resume on August 20, 2026</p>
+            <p>Generated from resume on August 24, 2026</p>
         </footer>
     </div>
+    <script>
+        let editModeOn = false;
+        // All selectors that should be editable
+        const EDITABLE_SELECTORS = [
+            'h1', 'h2', 'h3', 'p', 'a',
+            '.summary', '.skill-tag', '.tech-tag',
+            '.description', '.date', '.institution',
+            '.contact-item', '.achievement-item h3'
+        ];
+        function setEditableAll(enabled) {
+            EDITABLE_SELECTORS.forEach(sel => {
+                document.querySelectorAll(sel).forEach(el => {
+                    // Don't make the edit bar buttons/spans editable
+                    if (el.closest('#editBar')) return;
+                    el.contentEditable = enabled ? 'true' : 'false';
+                    if (enabled) {
+                        el.style.outline = '2px dashed rgba(168,85,247,0.5)';
+                        el.style.borderRadius = '4px';
+                        el.style.minHeight = '1em';
+                    } else {
+                        el.style.outline = '';
+                        el.style.borderRadius = '';
+                    }
+                });
+            });
+        }
+        function toggleEditMode() {
+            editModeOn = !editModeOn;
+            const btn = document.getElementById('editToggleBtn');
+            const status = document.getElementById('editStatus');
+            setEditableAll(editModeOn);
+            if (editModeOn) {
+                btn.textContent = '✅ Done Editing';
+                btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+                status.style.display = 'inline';
+            } else {
+                btn.textContent = '✏️ Edit Template';
+                btn.style.background = 'linear-gradient(135deg,#a855f7,#38bdf8)';
+                status.style.display = 'none';
+            }
+        }
+        // Auto-activate edit mode if URL contains ?edit=1
+        // This is triggered automatically after "Generate Portfolio" is clicked
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('edit') === '1') {
+                toggleEditMode();
+            }
+        });
+    </script>
 </body>
 </html>
