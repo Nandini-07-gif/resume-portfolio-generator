@@ -2,9 +2,13 @@ import os
 import re
 import json
 import sys
+import io
+import base64
+import zipfile
+import xml.etree.ElementTree as ET
 import urllib.parse
 import webbrowser
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -28,6 +32,122 @@ try:
 except ImportError:
     genai = None
     HAS_GEMINI = False
+
+def _extract_pdf_raw_strings(file_bytes: bytes) -> str:
+    """Fallback parser to extract text strings from PDF byte streams."""
+    try:
+        raw = file_bytes.decode('latin-1', errors='ignore')
+        matches = re.findall(r'\(([^()\r\n]{2,})\)\s*T[jJ]', raw)
+        if not matches:
+            matches = re.findall(r'\[\s*\(([^()\r\n]{2,})\)\s*\]\s*TJ', raw)
+        if matches:
+            cleaned_strings = [m.strip() for m in matches if len(m.strip()) > 1]
+            return "\n".join(cleaned_strings)
+    except Exception:
+        pass
+    return ""
+
+def extract_text_from_file_bytes(file_bytes: bytes, filename: str) -> str:
+    """Extract clean plain text from uploaded files (.txt, .pdf, .docx, .doc, .json)."""
+    if not file_bytes:
+        return ""
+    
+    ext = os.path.splitext(filename)[1].lower() if filename else ""
+
+    # 1. JSON file
+    if ext == '.json':
+        try:
+            raw_str = file_bytes.decode('utf-8', errors='ignore')
+            data = json.loads(raw_str)
+            if isinstance(data, dict):
+                lines = []
+                for k, v in data.items():
+                    if isinstance(v, str) and v:
+                        lines.append(f"{k.capitalize()}: {v}")
+                    elif isinstance(v, list) and v:
+                        lines.append(f"{k.capitalize()}:")
+                        for item in v:
+                            if isinstance(item, str):
+                                lines.append(f"- {item}")
+                            elif isinstance(item, dict):
+                                item_str = " | ".join(str(val) for val in item.values() if val)
+                                lines.append(f"- {item_str}")
+                    elif isinstance(v, dict) and v:
+                        lines.append(f"{k.capitalize()}:")
+                        for sub_k, sub_v in v.items():
+                            if sub_v:
+                                lines.append(f"  {sub_k}: {sub_v}")
+                if lines:
+                    return "\n".join(lines)
+                return raw_str
+        except Exception:
+            pass
+
+    # 2. PDF file
+    if ext == '.pdf':
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+            pages_text = [page.extract_text() or "" for page in reader.pages]
+            text = "\n".join(pages_text).strip()
+            if text:
+                return text
+        except Exception:
+            pass
+
+        try:
+            import PyPDF2
+            reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
+            pages_text = [page.extract_text() or "" for page in reader.pages]
+            text = "\n".join(pages_text).strip()
+            if text:
+                return text
+        except Exception:
+            pass
+
+        raw_pdf_text = _extract_pdf_raw_strings(file_bytes)
+        if raw_pdf_text:
+            return raw_pdf_text
+
+    # 3. DOCX / DOC file
+    if ext in ('.docx', '.doc'):
+        try:
+            import docx
+            doc = docx.Document(io.BytesIO(file_bytes))
+            paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                    if row_text:
+                        paragraphs.append(row_text)
+            text = "\n".join(paragraphs).strip()
+            if text:
+                return text
+        except Exception:
+            pass
+
+        try:
+            with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
+                xml_content = z.read('word/document.xml')
+                tree = ET.fromstring(xml_content)
+                text_nodes = [node.text for node in tree.iter() if node.tag.endswith('}t') and node.text]
+                text = " ".join(text_nodes).strip()
+                if text:
+                    return text
+        except Exception:
+            pass
+
+    # 4. Fallback / Plain Text (.txt or unknown text file)
+    for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+        try:
+            text = file_bytes.decode(encoding).strip()
+            if text:
+                text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+                return text
+        except UnicodeDecodeError:
+            continue
+
+    return ""
 
 DEFAULT_PORTFOLIO_DATA = {
     "name": "",
@@ -622,44 +742,104 @@ def generate_html(data, theme_class="theme-minimalist"):
 # WEB APPLICATION DASHBOARD HTML
 # ==========================================================
 WEB_APP_HTML = """<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PortfolioAI — Resume to Portfolio Generator</title>
-    <meta name="description" content="Transform your resume into a stunning portfolio webpage instantly using Gemini AI. Built with Python, powered by intelligence.">
+    <title>Portfolio Studio — Resume to Web Portfolio Generator</title>
+    <meta name="description" content="Convert resume details into an elegant, single-page web portfolio. Clean, responsive, and customizable.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         /* =============================================
-           DESIGN TOKENS & RESPONSIVE RESET (LIGHT THEME)
+           DESIGN SYSTEM & THEME TOKENS (LIGHT DEFAULT)
            ============================================= */
-        :root {
-            --bg-base:       #f8fafc;
+        :root, [data-theme="light"] {
+            --bg-base:       #faf9f6;
             --bg-surface:    #ffffff;
             --bg-raised:     #f1f5f9;
             --bg-overlay:    #ffffff;
             --border:        #e2e8f0;
             --border-hover:  #cbd5e1;
-            --accent-1:      #7c3aed;
-            --accent-2:      #2563eb;
-            --accent-green:  #10b981;
+            --accent:        #4f46e5;
+            --accent-hover:  #4338ca;
+            --accent-subtle: #e0e7ff;
+            --accent-green:  #059669;
             --accent-amber:  #d97706;
-            --accent-pink:   #db2777;
             --text-primary:  #0f172a;
             --text-secondary:#475569;
             --text-muted:    #64748b;
             --radius-sm:     8px;
-            --radius-md:     14px;
-            --radius-lg:     20px;
-            --radius-xl:     28px;
-            --shadow-sm:     0 2px 8px rgba(15,23,42,0.04);
-            --shadow-md:     0 8px 30px rgba(15,23,42,0.08);
-            --shadow-lg:     0 20px 50px rgba(15,23,42,0.12);
-            --transition:    0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            --radius-md:     12px;
+            --radius-lg:     16px;
+            --radius-xl:     24px;
+            --shadow-sm:     0 1px 3px rgba(15,23,42,0.06);
+            --shadow-md:     0 6px 20px -4px rgba(15,23,42,0.08);
+            --shadow-lg:     0 16px 40px -8px rgba(15,23,42,0.12);
+            --transition:    0.2s ease;
         }
+
+        [data-theme="dark"] {
+            --bg-base:       #0b0f19;
+            --bg-surface:    #151c2c;
+            --bg-raised:     #1e293b;
+            --bg-overlay:    #1e293b;
+            --border:        #334155;
+            --border-hover:  #475569;
+            --accent:        #6366f1;
+            --accent-hover:  #818cf8;
+            --accent-subtle: rgba(99,102,241,0.15);
+            --accent-green:  #10b981;
+            --accent-amber:  #f59e0b;
+            --text-primary:  #f8fafc;
+            --text-secondary:#94a3b8;
+            --text-muted:    #64748b;
+            --shadow-sm:     0 1px 3px rgba(0,0,0,0.3);
+            --shadow-md:     0 6px 20px rgba(0,0,0,0.4);
+            --shadow-lg:     0 16px 40px rgba(0,0,0,0.6);
+        }
+
+        /* Dark mode — explicit readable overrides */
+        [data-theme="dark"] .field-input {
+            background: #1e293b;
+            color: #f8fafc;
+            border-color: #334155;
+        }
+        [data-theme="dark"] .field-input::placeholder { color: #64748b; }
+        [data-theme="dark"] .btn-secondary {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-color: #334155;
+        }
+        [data-theme="dark"] .btn-secondary:hover { background: #273549; border-color: #475569; }
+        [data-theme="dark"] .score-card { background: #1e293b; border-color: #334155; }
+        [data-theme="dark"] .score-bar-bg { background: #334155; }
+        [data-theme="dark"] .status-bar.error { color: #fca5a5; background: rgba(220,38,38,0.15); border-color: rgba(220,38,38,0.3); }
+        [data-theme="dark"] .status-bar.info { color: #a5b4fc; }
+        [data-theme="dark"] .status-bar.success { color: #6ee7b7; background: rgba(5,150,105,0.12); }
+        [data-theme="dark"] .dropdown-menu { background: #1e293b; border-color: #334155; }
+        [data-theme="dark"] .dropdown-item { color: #e2e8f0; border-color: #334155; }
+        [data-theme="dark"] .dropdown-item:hover { background: rgba(99,102,241,0.15); }
+        [data-theme="dark"] .modal-card { background: #151c2c; border-color: #334155; }
+        [data-theme="dark"] .modal-option-btn { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+        [data-theme="dark"] .theme-card { background: #1e293b; border-color: #334155; }
+        [data-theme="dark"] .theme-card h4 { color: #f8fafc; }
+        [data-theme="dark"] .theme-card.active { background: rgba(99,102,241,0.2); border-color: #6366f1; }
+        [data-theme="dark"] .preview-placeholder { color: #64748b; }
+        [data-theme="dark"] .hero-sub { color: #94a3b8; }
+        [data-theme="dark"] .hero h1 { color: #f8fafc; }
+        [data-theme="dark"] .brand-name { color: #f8fafc; }
+        [data-theme="dark"] .field-label { color: #e2e8f0; }
+        [data-theme="dark"] .field-hint-text { color: #64748b; }
+        [data-theme="dark"] .panel-title { color: #e2e8f0; }
+        [data-theme="dark"] .feature-chip { color: #94a3b8; }
+        [data-theme="dark"] .score-title { color: #e2e8f0; }
+        [data-theme="dark"] .tab-btn { color: #94a3b8; }
+        [data-theme="dark"] .tab-btn.active { color: #818cf8; background: #1e293b; }
+        [data-theme="dark"] .tab-btn:hover { color: #f8fafc; background: #273549; }
+
         *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
         html { scroll-behavior: smooth; }
         body {
@@ -669,46 +849,33 @@ WEB_APP_HTML = """<!DOCTYPE html>
             min-height: 100vh;
             line-height: 1.6;
             -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        /* =============================================
-           BACKGROUND & ANIMATED EFFECTS
-           ============================================= */
+        h1, h2, h3, h4, .brand-name {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        /* Architectural Grid Substrate */
         .bg-grid {
             position: fixed; inset: 0; z-index: 0;
             background-image:
-                linear-gradient(rgba(124,58,237,0.04) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(124,58,237,0.04) 1px, transparent 1px);
-            background-size: 56px 56px;
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 48px 48px;
+            opacity: 0.35;
             pointer-events: none;
         }
-        .bg-glow-1 {
-            position: fixed; width: 650px; height: 650px;
-            top: -250px; left: -200px;
-            background: radial-gradient(circle, rgba(124,58,237,0.06) 0%, transparent 70%);
-            pointer-events: none; z-index: 0;
-            animation: floatGlow 20s ease-in-out infinite alternate;
-        }
-        .bg-glow-2 {
-            position: fixed; width: 600px; height: 600px;
-            bottom: -150px; right: -150px;
-            background: radial-gradient(circle, rgba(37,99,235,0.05) 0%, transparent 70%);
-            pointer-events: none; z-index: 0;
-            animation: floatGlow2 24s ease-in-out infinite alternate;
-        }
-        @keyframes floatGlow { from { transform: translate(0,0) scale(1); } to { transform: translate(70px,50px) scale(1.1); } }
-        @keyframes floatGlow2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-60px,-40px) scale(1.08); } }
 
         .app-root { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
 
         /* =============================================
-           WELCOME MODAL (FIRST TIME VS RETURNING USER)
+           WELCOME MODAL
            ============================================= */
         .modal-overlay {
             position: fixed; inset: 0; z-index: 999;
-            background: rgba(15,23,42,0.6);
-            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            background: rgba(15,23,42,0.5);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
             display: flex; align-items: center; justify-content: center;
             padding: 20px;
             opacity: 0; pointer-events: none;
@@ -716,116 +883,88 @@ WEB_APP_HTML = """<!DOCTYPE html>
         }
         .modal-overlay.active { opacity: 1; pointer-events: auto; }
         .modal-card {
-            background: #ffffff;
+            background: var(--bg-surface);
             border: 1px solid var(--border);
             border-radius: var(--radius-xl);
-            max-width: 580px; width: 100%;
+            max-width: 540px; width: 100%;
             padding: 36px;
             box-shadow: var(--shadow-lg);
-            transform: translateY(20px) scale(0.96);
+            transform: translateY(16px) scale(0.98);
             transition: transform var(--transition);
             text-align: center;
-            position: relative;
         }
         .modal-overlay.active .modal-card { transform: translateY(0) scale(1); }
         .modal-icon {
-            width: 64px; height: 64px; margin: 0 auto 20px;
-            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
-            border-radius: 20px;
+            width: 56px; height: 56px; margin: 0 auto 18px;
+            background: var(--accent-subtle);
+            color: var(--accent);
+            border-radius: var(--radius-lg);
             display: flex; align-items: center; justify-content: center;
-            font-size: 28px; color: #fff;
-            box-shadow: 0 10px 25px rgba(124,58,237,0.3);
+            font-size: 24px;
         }
-        .modal-card h2 {
-            font-size: 1.8em; font-weight: 800; margin-bottom: 10px;
-            letter-spacing: -0.02em; color: var(--text-primary);
-        }
-        .modal-card p {
-            color: var(--text-secondary); font-size: 0.95em; line-height: 1.6;
-            margin-bottom: 28px;
-        }
-        .modal-options {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-            margin-bottom: 20px;
-        }
+        .modal-card h2 { font-size: 1.6em; font-weight: 800; margin-bottom: 8px; color: var(--text-primary); }
+        .modal-card p { color: var(--text-secondary); font-size: 0.95em; line-height: 1.6; margin-bottom: 24px; }
+        .modal-options { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
         @media (max-width: 540px) { .modal-options { grid-template-columns: 1fr; } }
         .modal-option-btn {
-            background: var(--bg-base);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 20px 16px; cursor: pointer;
+            background: var(--bg-base); border: 1px solid var(--border);
+            border-radius: var(--radius-md); padding: 18px 14px; cursor: pointer;
             text-align: center; transition: all var(--transition);
         }
-        .modal-option-btn:hover {
-            border-color: var(--accent-1); background: #f3e8ff;
-            transform: translateY(-3px);
-        }
-        .modal-option-btn i { font-size: 1.8em; margin-bottom: 10px; display: block; color: var(--accent-1); }
-        .modal-option-btn .opt-title { font-weight: 700; font-size: 0.95em; color: var(--text-primary); margin-bottom: 4px; }
+        .modal-option-btn:hover { border-color: var(--accent); background: var(--accent-subtle); transform: translateY(-2px); }
+        .modal-option-btn i { font-size: 1.5em; margin-bottom: 8px; display: block; color: var(--accent); }
+        .modal-option-btn .opt-title { font-weight: 700; font-size: 0.9em; color: var(--text-primary); margin-bottom: 4px; }
         .modal-option-btn .opt-desc { font-size: 0.78em; color: var(--text-muted); line-height: 1.4; }
-        .modal-close-link {
-            font-size: 0.82em; color: var(--text-muted); cursor: pointer; text-decoration: underline;
-        }
+        .modal-close-link { font-size: 0.82em; color: var(--text-muted); cursor: pointer; text-decoration: underline; }
         .modal-close-link:hover { color: var(--text-primary); }
 
         /* =============================================
-           NAVBAR / TOPBAR
+           NAVBAR / HEADER
            ============================================= */
         .topbar {
             position: sticky; top: 0; z-index: 100;
             display: flex; align-items: center; justify-content: space-between;
-            padding: 0 36px; height: 68px;
-            background: rgba(255,255,255,0.9);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            padding: 0 32px; height: 64px;
+            background: var(--bg-surface);
             border-bottom: 1px solid var(--border);
             box-shadow: var(--shadow-sm);
         }
-        .topbar-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+        .topbar-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
         .brand-icon {
-            width: 36px; height: 36px;
-            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
-            border-radius: 10px;
+            width: 32px; height: 32px;
+            background: var(--accent);
+            border-radius: var(--radius-sm);
             display: flex; align-items: center; justify-content: center;
-            font-size: 18px; color: #fff;
+            font-size: 16px; color: #fff; font-weight: 800;
         }
-        .brand-name { font-size: 1.15em; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; }
-        .brand-name span { color: var(--accent-1); }
-        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .brand-name { font-size: 1.1em; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; }
+        .brand-name span { color: var(--accent); }
+        .topbar-right { display: flex; align-items: center; gap: 10px; }
+
         .save-indicator {
-            font-size: 0.78em; font-weight: 600; color: #047857;
-            background: #ecfdf5; border: 1px solid #a7f3d0;
+            font-size: 0.78em; font-weight: 600; color: var(--accent-green);
+            background: rgba(5,150,105,0.08); border: 1px solid rgba(5,150,105,0.2);
             padding: 4px 12px; border-radius: 20px; display: flex; align-items: center; gap: 6px;
         }
-        .save-indicator i { font-size: 0.85em; }
 
         /* =============================================
            HERO HEADER
            ============================================= */
-        .hero {
-            text-align: center; padding: 48px 24px 36px;
-            max-width: 800px; margin: 0 auto;
-        }
-        .hero h1 {
-            font-size: clamp(2.2em, 4.5vw, 3.2em); font-weight: 900;
-            letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 14px;
-            color: var(--text-primary);
-        }
-        .hero h1 .gradient-text {
-            background: linear-gradient(135deg, #7c3aed 0%, #2563eb 50%, #059669 100%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        }
-        .hero-sub { font-size: 1.05em; color: var(--text-secondary); max-width: 600px; margin: 0 auto 28px; line-height: 1.6; }
+        .hero { text-align: center; padding: 40px 24px 28px; max-width: 760px; margin: 0 auto; }
+        .hero h1 { font-size: clamp(2em, 4vw, 2.8em); font-weight: 800; letter-spacing: -0.03em; line-height: 1.2; margin-bottom: 10px; color: var(--text-primary); }
+        .hero h1 .accent-text { color: var(--accent); }
+        .hero-sub { font-size: 1em; color: var(--text-secondary); max-width: 580px; margin: 0 auto 20px; line-height: 1.6; }
 
         /* =============================================
-           MAIN WORKSPACE LAYOUT (DE-CONGESTED & SPACIOUS)
+           MAIN WORKSPACE LAYOUT
            ============================================= */
         .workspace {
-            max-width: 1450px; margin: 0 auto;
-            padding: 0 32px 80px;
-            display: grid; grid-template-columns: 620px 1fr; gap: 32px;
+            max-width: 1440px; margin: 0 auto;
+            padding: 0 28px 60px;
+            display: grid; grid-template-columns: 600px 1fr; gap: 28px;
             align-items: start;
         }
-        @media (max-width: 1200px) { .workspace { grid-template-columns: 1fr; } }
+        @media (max-width: 1180px) { .workspace { grid-template-columns: 1fr; } }
 
         /* =============================================
            PANELS & CARDS
@@ -833,216 +972,183 @@ WEB_APP_HTML = """<!DOCTYPE html>
         .panel {
             background: var(--bg-surface);
             border: 1px solid var(--border);
-            border-radius: var(--radius-xl);
+            border-radius: var(--radius-lg);
             overflow: hidden; box-shadow: var(--shadow-md);
         }
         .panel-header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 20px 28px;
-            border-bottom: 1px solid var(--border);
+            padding: 16px 24px; border-bottom: 1px solid var(--border);
             background: var(--bg-raised);
         }
-        .panel-title {
-            display: flex; align-items: center; gap: 10px;
-            font-size: 0.95em; font-weight: 700; color: var(--text-primary);
-            letter-spacing: 0.02em;
-        }
-        .panel-title i { color: var(--accent-1); }
-        .panel-body { padding: 28px; }
+        .panel-title { display: flex; align-items: center; gap: 8px; font-size: 0.9em; font-weight: 700; color: var(--text-primary); }
+        .panel-title i { color: var(--accent); }
+        .panel-body { padding: 24px; }
 
         /* =============================================
            SCORE & COMPLETENESS BAR
            ============================================= */
         .score-card {
-            background: var(--bg-raised);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 16px 20px; margin-bottom: 24px;
-            display: flex; align-items: center; justify-content: space-between; gap: 16px;
+            background: var(--bg-raised); border: 1px solid var(--border);
+            border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 20px;
+            display: flex; align-items: center; justify-content: space-between; gap: 14px;
         }
         .score-info { flex: 1; }
-        .score-title { font-size: 0.85em; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
-        .score-bar-bg { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
-        .score-bar-fill { height: 100%; width: 25%; background: linear-gradient(90deg, var(--accent-1), var(--accent-green)); transition: width 0.4s ease; border-radius: 4px; }
+        .score-title { font-size: 0.82em; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
+        .score-bar-bg { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+        .score-bar-fill { height: 100%; width: 25%; background: var(--accent); transition: width 0.3s ease; border-radius: 3px; }
 
         /* =============================================
            FORM TAB NAVIGATOR
            ============================================= */
         .form-tabs {
-            display: flex; gap: 6px; background: var(--bg-raised);
-            padding: 6px; border-radius: var(--radius-md); border: 1px solid var(--border);
-            margin-bottom: 24px; overflow-x: auto;
+            display: flex; gap: 4px; background: var(--bg-raised);
+            padding: 4px; border-radius: var(--radius-md); border: 1px solid var(--border);
+            margin-bottom: 20px; overflow-x: auto;
         }
         .tab-btn {
-            flex: 1; padding: 10px 14px; border-radius: var(--radius-sm);
+            flex: 1; padding: 9px 12px; border-radius: var(--radius-sm);
             border: none; background: transparent; color: var(--text-secondary);
-            font-size: 0.82em; font-weight: 600; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-size: 0.8em; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
             white-space: nowrap; transition: all var(--transition);
         }
-        .tab-btn:hover { color: var(--text-primary); background: #ffffff; }
-        .tab-btn.active { background: var(--accent-1); color: #fff; box-shadow: 0 4px 12px rgba(124,58,237,0.25); }
+        .tab-btn:hover { color: var(--text-primary); background: var(--bg-surface); }
+        .tab-btn.active { background: var(--bg-surface); color: var(--accent); box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
 
         .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.25s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .tab-content.active { display: block; }
 
         /* =============================================
-           SPACIOUS FORM FIELDS
+           FORM FIELDS
            ============================================= */
-        .field-group { margin-bottom: 20px; }
-        .field-label-row {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 8px;
-        }
-        .field-label {
-            font-size: 0.82em; font-weight: 700; color: var(--text-primary);
-            letter-spacing: 0.04em; text-transform: uppercase;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .field-label i { color: var(--accent-1); font-size: 0.9em; }
+        .field-group { margin-bottom: 18px; }
+        .field-label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .field-label { font-size: 0.8em; font-weight: 700; color: var(--text-primary); letter-spacing: 0.02em; display: flex; align-items: center; gap: 6px; }
+        .field-label i { color: var(--accent); font-size: 0.9em; }
         .btn-ai-enhance {
-            font-size: 0.75em; font-weight: 600; color: #6d28d9;
-            background: #f3e8ff; border: 1px solid #ddd6fe;
+            font-size: 0.72em; font-weight: 600; color: var(--accent);
+            background: var(--accent-subtle); border: 1px solid rgba(79,70,229,0.2);
             padding: 3px 10px; border-radius: 12px; cursor: pointer;
-            transition: all var(--transition); display: inline-flex; align-items: center; gap: 5px;
+            transition: all var(--transition); display: inline-flex; align-items: center; gap: 4px;
         }
-        .btn-ai-enhance:hover { background: var(--accent-1); color: #fff; transform: translateY(-1px); }
+        .btn-ai-enhance:hover { background: var(--accent); color: #fff; }
 
         .field-input {
-            width: 100%; background: #ffffff;
-            border: 1px solid #cbd5e1; border-radius: var(--radius-md);
-            padding: 14px 18px; color: var(--text-primary);
-            font-family: 'Inter', sans-serif; font-size: 0.92em; line-height: 1.6;
+            width: 100%; background: var(--bg-surface);
+            border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 12px 16px; color: var(--text-primary);
+            font-family: 'Inter', sans-serif; font-size: 0.9em; line-height: 1.5;
             outline: none; transition: border-color var(--transition), box-shadow var(--transition);
         }
-        .field-input:focus {
-            border-color: var(--accent-1);
-            box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
-        }
+        .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
         .field-input::placeholder { color: var(--text-muted); }
-        textarea.field-input { resize: vertical; min-height: 110px; }
-
-        .field-hint-text { font-size: 0.78em; color: var(--text-muted); margin-top: 6px; }
+        textarea.field-input { resize: vertical; min-height: 100px; }
+        .field-hint-text { font-size: 0.76em; color: var(--text-muted); margin-top: 4px; }
 
         /* =============================================
            BUTTONS & ACTIONS
            ============================================= */
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-            padding: 12px 22px; border-radius: var(--radius-md);
-            font-family: 'Inter', sans-serif; font-size: 0.9em; font-weight: 600;
+            padding: 10px 18px; border-radius: var(--radius-md);
+            font-family: 'Inter', sans-serif; font-size: 0.88em; font-weight: 600;
             border: none; cursor: pointer; text-decoration: none;
             transition: all var(--transition); white-space: nowrap; user-select: none;
         }
-        .btn:hover { transform: translateY(-2px); opacity: 0.95; }
+        .btn:hover { transform: translateY(-1px); opacity: 0.96; }
         .btn:active { transform: translateY(0); }
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
-            color: #fff; box-shadow: 0 6px 20px rgba(124,58,237,0.3);
-        }
-        .btn-secondary {
-            background: var(--bg-raised); color: var(--text-primary);
-            border: 1px solid var(--border);
-        }
-        .btn-secondary:hover { border-color: var(--border-hover); background: #ffffff; }
-        .btn-amber {
-            background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff;
-            box-shadow: 0 4px 14px rgba(245,158,11,0.3);
-        }
-        .btn-green {
-            background: linear-gradient(135deg, #10b981, #059669); color: #fff;
-            box-shadow: 0 4px 14px rgba(16,185,129,0.3);
-        }
-        .btn-sm { padding: 8px 14px; font-size: 0.82em; }
-        .btn-full { width: 100%; padding: 15px; font-size: 0.98em; }
+        .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(79,70,229,0.25); }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-secondary { background: var(--bg-raised); color: var(--text-primary); border: 1px solid var(--border); }
+        .btn-secondary:hover { border-color: var(--border-hover); background: var(--bg-surface); }
+        .btn-amber { background: var(--accent-amber); color: #fff; }
+        .btn-green { background: var(--accent-green); color: #fff; }
+        .btn-sm { padding: 7px 12px; font-size: 0.8em; }
+        .btn-full { width: 100%; padding: 14px; font-size: 0.95em; }
 
         /* =============================================
            THEME SELECTOR GRID
            ============================================= */
-        .theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+        .theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
         .theme-card {
-            background: var(--bg-raised); border: 1px solid var(--border);
-            border-radius: var(--radius-md); padding: 16px; cursor: pointer;
+            background: var(--bg-base); border: 1px solid var(--border);
+            border-radius: var(--radius-md); padding: 14px; cursor: pointer;
             transition: all var(--transition); text-align: left; position: relative;
         }
-        .theme-card:hover { border-color: var(--accent-1); transform: translateY(-2px); }
-        .theme-card.active {
-            border-color: var(--accent-1); background: #f3e8ff;
-            box-shadow: 0 0 0 1px var(--accent-1);
-        }
-        .theme-card h4 { font-size: 0.92em; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
-        .theme-card p { font-size: 0.78em; color: var(--text-muted); margin-bottom: 10px; }
-        .theme-dots { display: flex; gap: 6px; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .theme-card:hover { border-color: var(--accent); }
+        .theme-card.active { border-color: var(--accent); background: var(--accent-subtle); }
+        .theme-card h4 { font-size: 0.88em; font-weight: 700; color: var(--text-primary); margin-bottom: 3px; }
+        .theme-card p { font-size: 0.76em; color: var(--text-muted); margin-bottom: 8px; }
+        .theme-dots { display: flex; gap: 5px; }
+        .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 
         /* =============================================
            STATUS BAR
            ============================================= */
         .status-bar {
-            margin-top: 16px; padding: 12px 18px; border-radius: var(--radius-md);
-            font-size: 0.88em; font-weight: 600; display: none; align-items: center; gap: 10px;
+            margin-top: 14px; padding: 10px 16px; border-radius: var(--radius-md);
+            font-size: 0.85em; font-weight: 600; display: none; align-items: center; gap: 8px;
         }
         .status-bar.show { display: flex; }
-        .status-bar.success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; }
-        .status-bar.error   { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; }
-        .status-bar.info    { background: #f3e8ff; border: 1px solid #ddd6fe; color: #6d28d9; }
+        .status-bar.success { background: rgba(5,150,105,0.1); border: 1px solid rgba(5,150,105,0.25); color: var(--accent-green); }
+        .status-bar.error   { background: rgba(220,38,38,0.1); border: 1px solid rgba(220,38,38,0.25); color: #dc2626; }
+        .status-bar.info    { background: var(--accent-subtle); border: 1px solid rgba(79,70,229,0.25); color: var(--accent); }
 
         /* =============================================
            PREVIEW PANEL (RIGHT SIDE)
            ============================================= */
-        .preview-panel { position: sticky; top: 90px; }
+        .preview-panel { position: sticky; top: 80px; }
         .preview-toolbar {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 16px 24px; border-bottom: 1px solid var(--border);
+            padding: 14px 20px; border-bottom: 1px solid var(--border);
             background: var(--bg-raised);
         }
-        .preview-title { font-size: 0.88em; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
-        .preview-actions { display: flex; gap: 10px; align-items: center; }
+        .preview-title { font-size: 0.85em; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green); }
+        .preview-actions { display: flex; gap: 8px; align-items: center; }
 
         .preview-frame {
-            height: calc(100vh - 230px); min-height: 560px;
+            height: calc(100vh - 210px); min-height: 540px;
             width: 100%; border: none; background: #fff; display: block;
         }
         .preview-placeholder {
-            height: calc(100vh - 230px); min-height: 560px;
+            height: calc(100vh - 210px); min-height: 540px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: 16px; color: var(--text-muted); padding: 40px; text-align: center;
+            gap: 14px; color: var(--text-muted); padding: 40px; text-align: center;
         }
-        .preview-placeholder i { font-size: 3.5em; opacity: 0.4; color: var(--accent-1); }
+        .preview-placeholder i { font-size: 3em; opacity: 0.35; color: var(--accent); }
 
         /* =============================================
            DOWNLOAD DROPDOWN MENU
            ============================================= */
         .dropdown-wrapper { position: relative; }
         .dropdown-menu {
-            display: none; position: absolute; right: 0; top: calc(100% + 8px);
-            background: #ffffff; border: 1px solid var(--border);
-            border-radius: var(--radius-md); min-width: 220px;
+            display: none; position: absolute; right: 0; top: calc(100% + 6px);
+            background: var(--bg-surface); border: 1px solid var(--border);
+            border-radius: var(--radius-md); min-width: 200px;
             box-shadow: var(--shadow-lg); z-index: 200; overflow: hidden;
         }
         .dropdown-menu.open { display: block; animation: dropDown 0.15s ease; }
-        @keyframes dropDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes dropDown { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
         .dropdown-item {
-            display: flex; align-items: center; gap: 12px; padding: 13px 18px;
-            font-size: 0.88em; font-weight: 600; color: var(--text-primary); cursor: pointer;
+            display: flex; align-items: center; gap: 10px; padding: 11px 16px;
+            font-size: 0.85em; font-weight: 600; color: var(--text-primary); cursor: pointer;
             border-bottom: 1px solid var(--border); transition: background var(--transition);
         }
         .dropdown-item:last-child { border-bottom: none; }
-        .dropdown-item:hover { background: #f3e8ff; }
+        .dropdown-item:hover { background: var(--accent-subtle); }
         .dropdown-item .fmt { font-size: 0.75em; color: var(--text-muted); margin-left: auto; }
 
         /* =============================================
-           FOOTER FEATURE STRIP
+           FOOTER
            ============================================= */
         .footer-strip {
-            border-top: 1px solid var(--border); padding: 24px;
-            display: flex; align-items: center; justify-content: center; gap: 36px; flex-wrap: wrap;
+            border-top: 1px solid var(--border); padding: 20px 24px;
+            display: flex; align-items: center; justify-content: center; gap: 32px; flex-wrap: wrap;
             background: var(--bg-surface); margin-top: auto;
         }
-        .feature-chip { display: flex; align-items: center; gap: 8px; font-size: 0.82em; color: var(--text-secondary); }
-        .feature-chip i { color: var(--accent-1); }
+        .feature-chip { display: flex; align-items: center; gap: 8px; font-size: 0.8em; color: var(--text-secondary); }
+        .feature-chip i { color: var(--accent); }
 
         .spin { animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -1050,26 +1156,24 @@ WEB_APP_HTML = """<!DOCTYPE html>
 </head>
 <body>
     <div class="bg-grid"></div>
-    <div class="bg-glow-1"></div>
-    <div class="bg-glow-2"></div>
 
-    <!-- WELCOME MODAL (FIRST TIME VS RETURNING USER) -->
+    <!-- WELCOME MODAL -->
     <div class="modal-overlay" id="welcomeModal">
         <div class="modal-card">
-            <div class="modal-icon"><i class="fas fa-wand-magic-sparkles"></i></div>
-            <h2>Welcome to PortfolioAI</h2>
-            <p>Convert raw resume text into a stunning, responsive portfolio website instantly. Have you built a portfolio with us before?</p>
+            <div class="modal-icon"><i class="fas fa-file-invoice"></i></div>
+            <h2>Welcome to Portfolio Studio</h2>
+            <p>Convert your resume text into a clean, editable single-page web portfolio. Have you built a portfolio with us before?</p>
 
             <div class="modal-options">
                 <div class="modal-option-btn" onclick="handleWelcomeChoice('new')">
                     <i class="fas fa-user-plus"></i>
                     <div class="opt-title">First Time User</div>
-                    <div class="opt-desc">Start fresh & build a new portfolio from scratch or guided sample</div>
+                    <div class="opt-desc">Create a new portfolio from scratch or guided sample</div>
                 </div>
                 <div class="modal-option-btn" onclick="handleWelcomeChoice('returning')">
                     <i class="fas fa-rotate-left"></i>
                     <div class="opt-title">Returning User</div>
-                    <div class="opt-desc">Load & edit your previously saved resume data instantly</div>
+                    <div class="opt-desc">Load & edit your saved resume data instantly</div>
                 </div>
             </div>
 
@@ -1081,23 +1185,23 @@ WEB_APP_HTML = """<!DOCTYPE html>
         <!-- NAVBAR -->
         <nav class="topbar">
             <a href="/" class="topbar-brand">
-                <div class="brand-icon">⚡</div>
-                <span class="brand-name">Portfolio<span>AI</span></span>
+                <div class="brand-icon">P</div>
+                <span class="brand-name">Portfolio<span>Studio</span></span>
             </a>
             <div class="topbar-right">
-                <div class="save-indicator" id="saveIndicator"><i class="fas fa-check"></i> Auto-saved</div>
-                <button class="btn btn-secondary btn-sm" onclick="openModal()"><i class="fas fa-user-circle"></i> Welcome Screen</button>
-                <button class="btn btn-secondary btn-sm" onclick="exportDataJSON()"><i class="fas fa-file-code"></i> Export JSON</button>
-                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('importFileInput').click()"><i class="fas fa-upload"></i> Import</button>
-                <input type="file" id="importFileInput" style="display:none" accept=".json" onchange="importDataJSON(event)">
-                <a href="/portfolio.html" target="_blank" class="btn btn-secondary btn-sm"><i class="fas fa-external-link-alt"></i> View Full Tab</a>
+                <div class="save-indicator" id="saveIndicator"><i class="fas fa-check"></i> Saved</div>
+                <button class="btn btn-secondary btn-sm" onclick="toggleDashboardTheme()" id="themeToggleBtn" title="Toggle light / dark mode"><i class="fas fa-moon" id="themeIcon"></i> <span id="themeLabel">Dark</span></button>
+                <button class="btn btn-secondary btn-sm" onclick="openModal()"><i class="fas fa-user-circle"></i> Welcome</button>
+                <button class="btn btn-primary btn-sm" onclick="document.getElementById('resumeFileInput').click()"><i class="fas fa-file-upload"></i> Upload Resume</button>
+                <input type="file" id="resumeFileInput" style="display:none" accept=".txt,.pdf,.docx,.doc" onchange="if(this.files[0]) uploadResumeFile(this.files[0])">
+                <a href="/portfolio.html" target="_blank" class="btn btn-secondary btn-sm"><i class="fas fa-external-link-alt"></i> Full View</a>
             </div>
         </nav>
 
         <!-- HERO HEADER -->
         <header class="hero">
-            <h1>Turn Resume Text into a<br><span class="gradient-text">Stunning Web Portfolio</span></h1>
-            <p class="hero-sub">AI-assisted portfolio creation powered by Python & Gemini API. Fill out your details below or load a sample resume to see live updates.</p>
+            <h1>Transform Your Resume into a <span class="accent-text">Web Portfolio</span></h1>
+            <p class="hero-sub">Fill out your resume details below or load the sample text to generate your customizable portfolio site.</p>
         </header>
 
         <!-- WORKSPACE (INPUT & PREVIEW) -->
@@ -1106,7 +1210,7 @@ WEB_APP_HTML = """<!DOCTYPE html>
             <!-- LEFT SIDE: STEPPED INPUT FORM PANEL -->
             <div class="panel">
                 <div class="panel-header">
-                    <div class="panel-title"><i class="fas fa-sliders"></i> Portfolio Creator</div>
+                    <div class="panel-title"><i class="fas fa-edit"></i> Resume Inputs</div>
                     <div style="display:flex; gap:8px;">
                         <button class="btn btn-amber btn-sm" onclick="loadSampleResume()"><i class="fas fa-download"></i> Load Sample</button>
                         <button class="btn btn-secondary btn-sm" onclick="resetForm()"><i class="fas fa-trash"></i> Reset</button>
@@ -1131,8 +1235,8 @@ WEB_APP_HTML = """<!DOCTYPE html>
                     <div class="form-tabs">
                         <button class="tab-btn active" onclick="switchTab('tab1', this)"><i class="fas fa-user"></i> 1. Profile</button>
                         <button class="tab-btn" onclick="switchTab('tab2', this)"><i class="fas fa-code"></i> 2. Skills & Exp</button>
-                        <button class="tab-btn" onclick="switchTab('tab3', this)"><i class="fas fa-rocket"></i> 3. Projects</button>
-                        <button class="tab-btn" onclick="switchTab('tab4', this)"><i class="fas fa-palette"></i> 4. Theme & Export</button>
+                        <button class="tab-btn" onclick="switchTab('tab3', this)"><i class="fas fa-folder-open"></i> 3. Projects</button>
+                        <button class="tab-btn" onclick="switchTab('tab4', this)"><i class="fas fa-palette"></i> 4. Layout Style</button>
                     </div>
 
                     <form id="portfolioForm" onsubmit="event.preventDefault(); generatePortfolio();">
@@ -1149,17 +1253,17 @@ WEB_APP_HTML = """<!DOCTYPE html>
 
                             <div class="field-group">
                                 <div class="field-label-row">
-                                    <label class="field-label"><i class="fas fa-briefcase"></i> Headline / Professional Title</label>
+                                    <label class="field-label"><i class="fas fa-briefcase"></i> Professional Title</label>
                                 </div>
                                 <input id="f_title" class="field-input" type="text" placeholder="e.g. Computer Science Student | Web Development Intern" oninput="onFieldChange()">
                             </div>
 
                             <div class="field-group">
                                 <div class="field-label-row">
-                                    <label class="field-label"><i class="fas fa-align-left"></i> Professional Summary</label>
-                                    <button type="button" class="btn-ai-enhance" onclick="aiEnhance('summary')"><i class="fas fa-wand-magic-sparkles"></i> AI Polish</button>
+                                    <label class="field-label"><i class="fas fa-align-left"></i> Summary</label>
+                                    <button type="button" class="btn-ai-enhance" onclick="aiEnhance('summary')"><i class="fas fa-magic"></i> Auto-Format</button>
                                 </div>
-                                <textarea id="f_summary" class="field-input" rows="4" placeholder="Brief factual summary of your background, experience, and career goals..." oninput="onFieldChange()"></textarea>
+                                <textarea id="f_summary" class="field-input" rows="4" placeholder="Brief summary of your technical background and career goals..." oninput="onFieldChange()"></textarea>
                             </div>
 
                             <div class="field-group">
@@ -1188,17 +1292,17 @@ WEB_APP_HTML = """<!DOCTYPE html>
                                     <label class="field-label"><i class="fas fa-tools"></i> Skills (Comma Separated)</label>
                                 </div>
                                 <input id="f_skills" class="field-input" type="text" placeholder="Python, Java, SQL, HTML/CSS, JavaScript, React, Flask, Git" oninput="onFieldChange()">
-                                <div class="field-hint-text">Separate skills with commas (e.g. Python, SQL, React)</div>
+                                <div class="field-hint-text">Separate skills with commas</div>
                             </div>
 
                             <div class="field-group">
                                 <div class="field-label-row">
                                     <label class="field-label"><i class="fas fa-building"></i> Work Experience</label>
-                                    <button type="button" class="btn-ai-enhance" onclick="aiEnhance('experience')"><i class="fas fa-wand-magic-sparkles"></i> AI Format</button>
+                                    <button type="button" class="btn-ai-enhance" onclick="aiEnhance('experience')"><i class="fas fa-magic"></i> Auto-Format</button>
                                 </div>
-                                <textarea id="f_experience" class="field-input" rows="5" placeholder="Format per line: Role | Company | Duration | Key Responsibilities
-e.g. Web Development Intern | Infosys | 2025 | Developed responsive UIs and assisted backends" oninput="onFieldChange()"></textarea>
-                                <div class="field-hint-text">Format: Role | Company | Year | Responsibilities</div>
+                                <textarea id="f_experience" class="field-input" rows="5" placeholder="Format: Role | Company | Year | Responsibilities
+e.g. Web Development Intern | Infosys | 2025 | Developed responsive user interfaces" oninput="onFieldChange()"></textarea>
+                                <div class="field-hint-text">Format per line: Role | Company | Year | Responsibilities</div>
                             </div>
                         </div>
 
@@ -1207,18 +1311,18 @@ e.g. Web Development Intern | Infosys | 2025 | Developed responsive UIs and assi
                             <div class="field-group">
                                 <div class="field-label-row">
                                     <label class="field-label"><i class="fas fa-layer-group"></i> Projects</label>
-                                    <button type="button" class="btn-ai-enhance" onclick="aiEnhance('projects')"><i class="fas fa-wand-magic-sparkles"></i> AI Format</button>
+                                    <button type="button" class="btn-ai-enhance" onclick="aiEnhance('projects')"><i class="fas fa-magic"></i> Auto-Format</button>
                                 </div>
-                                <textarea id="f_projects" class="field-input" rows="5" placeholder="Format per line: Title | Description | Tech1, Tech2
-e.g. Zenith 2 | Student project management platform | Python, Flask, SQL" oninput="onFieldChange()"></textarea>
+                                <textarea id="f_projects" class="field-input" rows="5" placeholder="Format: Title | Description | Technologies
+e.g. Zenith 2 | Project management platform | Python, Flask, SQL" oninput="onFieldChange()"></textarea>
                             </div>
 
                             <div class="field-group">
                                 <div class="field-label-row">
                                     <label class="field-label"><i class="fas fa-graduation-cap"></i> Education</label>
                                 </div>
-                                <textarea id="f_education" class="field-input" rows="3" placeholder="Format per line: Degree | Institution | Duration
-e.g. B.Tech Computer Science | GLA University, Mathura | 2025 - Present" oninput="onFieldChange()"></textarea>
+                                <textarea id="f_education" class="field-input" rows="3" placeholder="Format: Degree | Institution | Year
+e.g. B.Tech Computer Science | GLA University | 2025 - Present" oninput="onFieldChange()"></textarea>
                             </div>
                         </div>
 
@@ -1228,40 +1332,40 @@ e.g. B.Tech Computer Science | GLA University, Mathura | 2025 - Present" oninput
                                 <div class="field-label-row">
                                     <label class="field-label"><i class="fas fa-trophy"></i> Achievements & Leadership</label>
                                 </div>
-                                <textarea id="f_achievements" class="field-input" rows="3" placeholder="One achievement per line...
+                                <textarea id="f_achievements" class="field-input" rows="3" placeholder="One entry per line...
 e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></textarea>
                             </div>
 
                             <div class="field-group">
-                                <label class="field-label" style="margin-bottom:12px;"><i class="fas fa-palette"></i> Select Design Theme</label>
+                                <label class="field-label" style="margin-bottom:12px;"><i class="fas fa-palette"></i> Portfolio Design Theme</label>
                                 <div class="theme-grid">
-                                    <div class="theme-card" onclick="selectTheme('1', this)">
-                                        <h4>✨ Glassmorphism</h4>
-                                        <p>Creative & Vibrant</p>
-                                        <div class="theme-dots"><span class="dot" style="background:#a855f7"></span><span class="dot" style="background:#38bdf8"></span><span class="dot" style="background:#0f0c29"></span></div>
+                                    <div class="theme-card active" onclick="selectTheme('4', this)">
+                                        <h4>💼 Minimalist</h4>
+                                        <p>Clean & Corporate Light (Default)</p>
+                                        <div class="theme-dots"><span class="dot" style="background:#f8fafc"></span><span class="dot" style="background:#3b82f6"></span><span class="dot" style="background:#0f172a"></span></div>
                                     </div>
                                     <div class="theme-card" onclick="selectTheme('2', this)">
                                         <h4>📰 Editorial</h4>
-                                        <p>Clean & Magazine (Light)</p>
+                                        <p>Clean Magazine Serif</p>
                                         <div class="theme-dots"><span class="dot" style="background:#ffffff"></span><span class="dot" style="background:#dc2626"></span><span class="dot" style="background:#1c1917"></span></div>
+                                    </div>
+                                    <div class="theme-card" onclick="selectTheme('1', this)">
+                                        <h4>✨ Glassmorphism</h4>
+                                        <p>Vibrant Gradient</p>
+                                        <div class="theme-dots"><span class="dot" style="background:#a855f7"></span><span class="dot" style="background:#38bdf8"></span><span class="dot" style="background:#0f0c29"></span></div>
                                     </div>
                                     <div class="theme-card" onclick="selectTheme('3', this)">
                                         <h4>💻 Terminal</h4>
-                                        <p>Developer CLI</p>
+                                        <p>Developer Monospace</p>
                                         <div class="theme-dots"><span class="dot" style="background:#0d1117"></span><span class="dot" style="background:#58a6ff"></span><span class="dot" style="background:#7ee787"></span></div>
-                                    </div>
-                                    <div class="theme-card active" onclick="selectTheme('4', this)">
-                                        <h4>💼 Minimalist</h4>
-                                        <p>Corporate Light (Default)</p>
-                                        <div class="theme-dots"><span class="dot" style="background:#f8fafc"></span><span class="dot" style="background:#3b82f6"></span><span class="dot" style="background:#0f172a"></span></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- SUBMIT / GENERATE BUTTON -->
-                        <div style="margin-top: 24px;">
-                            <button type="submit" id="generateBtn" class="btn btn-primary btn-full"><i class="fas fa-magic"></i> Generate & View Portfolio</button>
+                        <!-- SUBMIT BUTTON -->
+                        <div style="margin-top: 20px;">
+                            <button type="submit" id="generateBtn" class="btn btn-primary btn-full"><i class="fas fa-globe"></i> Generate & View Portfolio</button>
                         </div>
                     </form>
 
@@ -1279,9 +1383,9 @@ e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></
                         <div class="dropdown-wrapper">
                             <button class="btn btn-green btn-sm" onclick="toggleDownloadDropdown()"><i class="fas fa-download"></i> Download <i class="fas fa-chevron-down" style="font-size:0.7em"></i></button>
                             <div class="dropdown-menu" id="downloadDropdown">
-                                <div class="dropdown-item" onclick="downloadAs('html')"><i class="fas fa-code" style="color:#38bdf8"></i> Download as HTML <span class="fmt">.html</span></div>
-                                <div class="dropdown-item" onclick="downloadAs('pdf')"><i class="fas fa-file-pdf" style="color:#f87171"></i> Download as PDF <span class="fmt">.pdf</span></div>
-                                <div class="dropdown-item" onclick="downloadAs('docx')"><i class="fas fa-file-word" style="color:#3b82f6"></i> Download as Word <span class="fmt">.doc</span></div>
+                                <div class="dropdown-item" onclick="downloadAs('html')"><i class="fas fa-code" style="color:#3b82f6"></i> Download HTML <span class="fmt">.html</span></div>
+                                <div class="dropdown-item" onclick="downloadAs('pdf')"><i class="fas fa-file-pdf" style="color:#ef4444"></i> Download PDF <span class="fmt">.pdf</span></div>
+                                <div class="dropdown-item" onclick="downloadAs('docx')"><i class="fas fa-file-word" style="color:#2563eb"></i> Download Word <span class="fmt">.doc</span></div>
                             </div>
                         </div>
                         <a href="/portfolio.html" target="_blank" class="btn btn-secondary btn-sm"><i class="fas fa-expand"></i> Full Screen</a>
@@ -1289,36 +1393,56 @@ e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></
                 </div>
 
                 <div id="previewPlaceholder" class="preview-placeholder">
-                    <i class="fas fa-laptop-code"></i>
-                    <h3>Your Portfolio Preview Will Appear Here</h3>
-                    <p>Fill out your details on the left or click "Load Sample", then hit "Generate & View Portfolio".</p>
+                    <i class="fas fa-desktop"></i>
+                    <h3>Your Web Portfolio Preview Will Appear Here</h3>
+                    <p>Fill out your details on the left or click "Load Sample", then click "Generate & View Portfolio".</p>
                 </div>
 
                 <iframe id="portfolioPreview" class="preview-frame" style="display:none;" src="about:blank"></iframe>
             </div>
         </main>
 
-        <!-- FOOTER CHIPS -->
+        <!-- FOOTER -->
         <footer class="footer-strip">
-            <div class="feature-chip"><i class="fas fa-bolt"></i> LocalStorage Persistence</div>
-            <div class="feature-chip"><i class="fas fa-brain"></i> Gemini AI Structured JSON</div>
-            <div class="feature-chip"><i class="fas fa-shield-alt"></i> Local Python Processing</div>
-            <div class="feature-chip"><i class="fas fa-download"></i> Multi-Format Export (HTML, PDF, DOC)</div>
+            <div class="feature-chip"><i class="fas fa-save"></i> Local Storage Saved</div>
+            <div class="feature-chip"><i class="fas fa-code"></i> Python Backend Server</div>
+            <div class="feature-chip"><i class="fas fa-file-download"></i> HTML / PDF / Word Export</div>
         </footer>
     </div>
 
     <script>
         let selectedThemeChoice = '4';
 
+        // --- DASHBOARD THEME TOGGLE (LIGHT / DARK) ---
+        function initDashboardTheme() {
+            const savedTheme = localStorage.getItem('portfolio_ai_dashboard_theme') || 'light';
+            setDashboardTheme(savedTheme);
+        }
+
+        function setDashboardTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('portfolio_ai_dashboard_theme', theme);
+            const icon = document.getElementById('themeIcon');
+            const label = document.getElementById('themeLabel');
+            if (icon) icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            if (label) label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        }
+
+        function toggleDashboardTheme() {
+            const current = document.documentElement.getAttribute('data-theme') || 'light';
+            const next = current === 'dark' ? 'light' : 'dark';
+            setDashboardTheme(next);
+        }
+
         // --- WELCOME MODAL LOGIC ---
         window.addEventListener('DOMContentLoaded', () => {
+            initDashboardTheme();
             const hasVisited = localStorage.getItem('portfolio_ai_visited');
             const savedData = localStorage.getItem('portfolio_ai_resume_data');
             
             if (!hasVisited) {
                 openModal();
             } else if (savedData) {
-                // Auto load saved data for returning user
                 loadSavedData(JSON.parse(savedData));
             }
         });
@@ -1338,13 +1462,12 @@ e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></
                 const savedData = localStorage.getItem('portfolio_ai_resume_data');
                 if (savedData) {
                     loadSavedData(JSON.parse(savedData));
-                    showStatus('success', 'Loaded your previously saved resume data!');
+                    showStatus('success', 'Loaded your saved resume data!');
                     generatePortfolio();
                 } else {
                     loadSampleResume();
                 }
             } else {
-                // First time user: load sample or leave clean
                 loadSampleResume();
             }
         }
@@ -1379,8 +1502,10 @@ e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></
             const data = getFormDataObj();
             localStorage.setItem('portfolio_ai_resume_data', JSON.stringify(data));
             const indicator = document.getElementById('saveIndicator');
-            indicator.style.opacity = '1';
-            setTimeout(() => { indicator.style.opacity = '0.7'; }, 1000);
+            if (indicator) {
+                indicator.style.opacity = '1';
+                setTimeout(() => { indicator.style.opacity = '0.7'; }, 1000);
+            }
         }
 
         function getFormDataObj() {
@@ -1420,7 +1545,7 @@ e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></
         }
 
         function resetForm() {
-            if (confirm("Are you sure you want to reset all fields?")) {
+            if (confirm("Are you sure you want to reset all input fields?")) {
                 document.getElementById('portfolioForm').reset();
                 localStorage.removeItem('portfolio_ai_resume_data');
                 updateScore();
@@ -1428,7 +1553,7 @@ e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></
             }
         }
 
-        // --- AI ENHANCE HELPER ---
+        // --- AUTO-FORMAT HELPER ---
         function aiEnhance(field) {
             if (field === 'summary') {
                 const cur = document.getElementById('f_summary').value;
@@ -1445,11 +1570,11 @@ e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></
             } else if (field === 'projects') {
                 const cur = document.getElementById('f_projects').value;
                 if (!cur.trim()) {
-                    document.getElementById('f_projects').value = "Smart Portfolio Generator | Web app that converts raw text resumes into structured HTML portfolios using Python and Gemini API | Python, HTML, CSS, JavaScript";
+                    document.getElementById('f_projects').value = "Smart Portfolio Generator | Web app that converts raw text resumes into structured HTML portfolios using Python | Python, HTML, CSS, JavaScript";
                 }
             }
             onFieldChange();
-            showStatus('success', 'AI Enhanced content applied!');
+            showStatus('success', 'Form text updated!');
         }
 
         // --- SERIALIZE & GENERATE ---
@@ -1485,7 +1610,7 @@ e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></
             const payloadText = serializeFields();
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Portfolio...';
-            showStatus('info', 'Processing portfolio generation...');
+            showStatus('info', 'Building portfolio webpage...');
 
             try {
                 const res = await fetch('/api/generate', {
@@ -1499,7 +1624,7 @@ e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></
                     document.getElementById('previewPlaceholder').style.display = 'none';
                     iframe.style.display = 'block';
                     iframe.src = '/portfolio.html?t=' + new Date().getTime();
-                    showStatus('success', '✅ Portfolio generated successfully! Click any text in the preview to edit directly.');
+                    showStatus('success', '✅ Portfolio generated! Click any text in the preview to edit directly.');
                 } else {
                     showStatus('error', 'Failed to generate portfolio.');
                 }
@@ -1507,7 +1632,7 @@ e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></
                 showStatus('error', 'Could not reach server.');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-magic"></i> Generate & View Portfolio';
+                btn.innerHTML = '<i class="fas fa-globe"></i> Generate & View Portfolio';
             }
         }
 
@@ -1568,7 +1693,7 @@ e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></
                     document.getElementById('f_github').value = github || 'github.com/example';
 
                     onFieldChange();
-                    showStatus('success', 'Sample data loaded successfully!');
+                    showStatus('success', 'Sample data loaded!');
                     generatePortfolio();
                 }
             } catch (err) {
@@ -1576,15 +1701,72 @@ e.g. Overall Coordinator, College Hackathon (2025)" oninput="onFieldChange()"></
             }
         }
 
-        // --- EXPORT & IMPORT JSON ---
-        function exportDataJSON() {
-            const data = getFormDataObj();
-            const jsonStr = JSON.stringify(data, null, 2);
-            const blob = new Blob([jsonStr], { type: 'application/json' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = (data.name ? data.name.replace(/\\s+/g, '_') : 'resume') + '_portfolio.json';
-            a.click();
+        // --- RESUME FILE UPLOAD (PDF / DOCX / TXT) ---
+        async function uploadResumeFile(file) {
+            if (!file) return;
+            showStatus('info', `Uploading & converting "${file.name}"...`);
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const base64Data = event.target.result;
+                try {
+                    const res = await fetch('/api/upload-resume', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filename: file.name, file_data: base64Data })
+                    });
+                    const result = await res.json();
+                    if (result.success && result.data) {
+                        populateFormWithData(result.data);
+                        autoSaveData();
+                        showStatus('success', `✅ "${file.name}" parsed & loaded!`);
+                        generatePortfolio();
+                    } else {
+                        showStatus('error', result.error || 'Failed to extract text from file.');
+                    }
+                } catch (err) {
+                    showStatus('error', 'Error uploading: ' + err.message);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function populateFormWithData(data) {
+            if (!data) return;
+            const NL = String.fromCharCode(10);
+            document.getElementById('f_name').value = data.name || '';
+            document.getElementById('f_title').value = data.headline || '';
+            document.getElementById('f_summary').value = data.professional_summary || data.summary || '';
+            if (Array.isArray(data.skills)) {
+                document.getElementById('f_skills').value = data.skills.join(', ');
+            } else { document.getElementById('f_skills').value = data.skills || ''; }
+            if (Array.isArray(data.experience)) {
+                document.getElementById('f_experience').value = data.experience.map(e => {
+                    if (typeof e === 'string') return e;
+                    const resp = Array.isArray(e.responsibilities) ? e.responsibilities.join(' | ') : (e.description || '');
+                    return [e.role||e.title||'', e.company||'', e.duration||'', resp].filter(Boolean).join(' | ');
+                }).join(NL);
+            } else { document.getElementById('f_experience').value = data.experience || ''; }
+            if (Array.isArray(data.education)) {
+                document.getElementById('f_education').value = data.education.map(e => {
+                    if (typeof e === 'string') return e;
+                    return [e.degree||'', e.institution||'', e.duration||''].filter(Boolean).join(' | ');
+                }).join(NL);
+            } else { document.getElementById('f_education').value = data.education || ''; }
+            if (Array.isArray(data.projects)) {
+                document.getElementById('f_projects').value = data.projects.map(p => {
+                    if (typeof p === 'string') return p;
+                    const tech = Array.isArray(p.technologies) ? p.technologies.join(', ') : (p.technologies || '');
+                    return [p.title||p.name||'', p.description||'', tech].filter(Boolean).join(' | ');
+                }).join(NL);
+            } else { document.getElementById('f_projects').value = data.projects || ''; }
+            if (Array.isArray(data.achievements)) {
+                document.getElementById('f_achievements').value = data.achievements.map(a => typeof a === 'string' ? a : (a.title || a.description || '')).join(NL);
+            } else { document.getElementById('f_achievements').value = data.achievements || ''; }
+            const contact = data.contact || {};
+            document.getElementById('f_email').value = contact.email || '';
+            document.getElementById('f_linkedin').value = contact.linkedin || '';
+            document.getElementById('f_github').value = contact.github || '';
+            updateScore();
         }
 
         function importDataJSON(e) {
@@ -1724,7 +1906,87 @@ xmlns="http://www.w3.org/TR/REC-html40">
             self.send_error(404, "Not Found")
 
     def do_POST(self):
-        if self.path == '/api/generate':
+        if self.path == '/api/upload-resume':
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            try:
+                content_type = self.headers.get('Content-Type', '')
+                filename = 'uploaded_resume.txt'
+                file_bytes = b''
+
+                if 'application/json' in content_type:
+                    payload = json.loads(body.decode('utf-8'))
+                    filename = payload.get('filename', 'uploaded_resume.txt')
+                    file_data_b64 = payload.get('file_data', '')
+                    if file_data_b64:
+                        if ',' in file_data_b64:
+                            file_data_b64 = file_data_b64.split(',', 1)[1]
+                        file_bytes = base64.b64decode(file_data_b64)
+                    else:
+                        file_bytes = payload.get('text', '').encode('utf-8')
+                else:
+                    filename = self.headers.get('X-Filename', 'uploaded_resume.txt')
+                    file_bytes = body
+
+                extracted_text = extract_text_from_file_bytes(file_bytes, filename)
+                if not extracted_text.strip():
+                    self.send_response(400)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({'success': False, 'error': 'Could not extract readable text from uploaded file.'}).encode('utf-8'))
+                    return
+
+                cleaned_resume = clean_resume_text(extracted_text)
+
+                # Save extracted text to resume.txt
+                resume_file_path = os.path.join(BASE_DIR, 'resume.txt')
+                with open(resume_file_path, 'w', encoding='utf-8') as f:
+                    f.write(cleaned_resume)
+
+                # Parse portfolio data
+                portfolio_data = None
+                parse_source = "structured"
+
+                if extracted_text.startswith('__STRUCTURED__'):
+                    portfolio_data = parse_structured_input(extracted_text)
+
+                if not portfolio_data or not _has_meaningful_data(portfolio_data):
+                    model = configure_gemini()
+                    if model:
+                        prompt = build_prompt(cleaned_resume)
+                        raw_resp = call_gemini(model, prompt)
+                        if raw_resp:
+                            portfolio_data = parse_and_validate_json(raw_resp)
+                            if _has_meaningful_data(portfolio_data):
+                                parse_source = "gemini"
+
+                if not portfolio_data or not _has_meaningful_data(portfolio_data):
+                    portfolio_data = parse_resume_locally(cleaned_resume)
+                    parse_source = "local"
+
+                theme_choice = self.headers.get('X-Theme-Choice', '4')
+                theme_class, theme_name = THEME_MAP.get(theme_choice, THEME_MAP["4"])
+                generate_html(portfolio_data, theme_class)
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                res_payload = {
+                    'success': True,
+                    'text': cleaned_resume,
+                    'data': portfolio_data,
+                    'source': parse_source,
+                    'filename': filename
+                }
+                self.wfile.write(json.dumps(res_payload).encode('utf-8'))
+
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'success': False, 'error': str(e)}).encode('utf-8'))
+
+        elif self.path == '/api/generate':
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length)
             try:
@@ -1777,11 +2039,11 @@ def run_web_app(port=5000):
     """Starts the Web Application Server on http://localhost:PORT"""
     server_address = ('', port)
     try:
-        httpd = HTTPServer(server_address, WebAppHandler)
+        httpd = ThreadingHTTPServer(server_address, WebAppHandler)
     except OSError:
         port = 8000
         server_address = ('', port)
-        httpd = HTTPServer(server_address, WebAppHandler)
+        httpd = ThreadingHTTPServer(server_address, WebAppHandler)
 
     app_url = f"http://localhost:{port}/"
     print("\n========================================================")
